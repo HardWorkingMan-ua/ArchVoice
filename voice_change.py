@@ -22,6 +22,15 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread, QObject, QSettings
 from PyQt6.QtGui import QFont, QIcon, QPalette, QColor
 
+def reload_audio_devices():
+    """Перезавантаження звукової системи для оновлення списку пристроїв"""
+    try:
+        sd._terminate()
+        sd._initialize()
+        return sd.query_devices()
+    except Exception as e:
+        print(f"Помилка перезавантаження звукової системи: {e}")
+        return sd.query_devices()
 
 class VirtualMicrophoneManager:
     """Менеджер віртуального мікрофону через PulseAudio"""
@@ -97,6 +106,7 @@ class AudioProcessor(QObject):
         self.buffer_read_index = 0
         self.buffer_lock = threading.Lock()
 
+
     def setup_filters(self):
         """Налаштування аудіо фільтрів"""
         try:
@@ -114,12 +124,25 @@ class AudioProcessor(QObject):
         try:
             self.is_processing = True
             input_info = sd.query_devices(input_device_id)
+
+            # Виводимо всі пристрої для дебагу
+            print("\nДоступні пристрої звуку:")
             devices = sd.query_devices()
+            for i, device in enumerate(devices):
+                input_ch = device['max_input_channels']
+                output_ch = device['max_output_channels']
+                flags = []
+                if input_ch > 0: flags.append("Мікрофон")
+                if output_ch > 0: flags.append("Вихід")
+                flags_str = " | ".join(flags)
+                print(f"{i}: {device['name']} [{flags_str}]")
+
+            # Шукаємо віртуальний пристрій
             virtual_sink_id = None
             for i, device in enumerate(devices):
                 if (device['max_output_channels'] > 0 and
-                    any(keyword in device['name']
-                        for keyword in [virtual_sink_name, "Voice_Changer_Output"])):
+                    any(keyword.lower() in device['name'].lower()
+                        for keyword in [virtual_sink_name, "Voice_Changer_Output", "voice_changer_sink"])):
                     virtual_sink_id = i
                     print(f"Знайдено віртуальний пристрій: {device['name']} (ID: {i})")
                     break
@@ -129,11 +152,15 @@ class AudioProcessor(QObject):
 
             print(f"Вхід: {input_info['name']}")
             print(f"Вихід: {sd.query_devices(virtual_sink_id)['name']}")
+
+            # Виправлений виклик методу
             return self.start_pipewire_processing(input_device_id, virtual_sink_id)
+
         except Exception as e:
             import traceback
             traceback.print_exc()
             return False, f"Помилка запуску: {e}"
+
 
     def find_virtual_sink_with_pactl(self):
         """Знаходить ID вихідного пристрою за допомогою pactl"""
@@ -211,57 +238,53 @@ class AudioProcessor(QObject):
 
     def input_callback(self, indata, frames, time, status):
         """Callback для вхідного потоку"""
+        if not self.is_processing:
+            return  # Не обробляємо, якщо обробка зупинена
+
         if status:
             print(f"Input status: {status}")
-        print(f"Input callback called with {frames} frames, shape: {indata.shape}")
+        if len(indata) == 0:
+            return
 
         input_audio = np.mean(indata, axis=1) if indata.shape[1] > 1 else indata[:, 0]
         if len(input_audio) != self.block_size:
-            print(f"Warning: input_audio length {len(input_audio)} does not match block_size {self.block_size}")
             input_audio = np.pad(input_audio, (0, self.block_size - len(input_audio)), mode='constant')[:self.block_size]
 
         level = np.sqrt(np.mean(input_audio**2))
         self.level_updated.emit(level)
-        print(f"Input level: {level}")
 
         processed_audio = self.process_audio(input_audio)
-        print(f"Processed audio max amplitude: {np.max(np.abs(processed_audio))}")
-        print(f"Processed audio shape: {processed_audio.shape}")
-
         processed_stereo = np.column_stack((processed_audio, processed_audio))
-        print(f"Processed stereo shape: {processed_stereo.shape}")
 
         with self.buffer_lock:
             end_idx = self.buffer_write_index + frames
             if end_idx > len(self.output_buffer):
-                print("Buffer overflow, resetting write index")
                 self.buffer_write_index = 0
                 end_idx = frames
             self.output_buffer[self.buffer_write_index:end_idx] = processed_stereo
             self.buffer_write_index = end_idx
-            print(f"Buffer write index: {self.buffer_write_index}, Buffer size: {len(self.output_buffer)}")
 
     def output_callback(self, outdata, frames, time, status):
         """Callback для вихідного потоку"""
+        if not self.is_processing:
+            outdata.fill(0)  # Заповнюємо нулями
+            return
+
         if status:
             print(f"Output status: {status}")
-        print(f"Output callback called with {frames} frames, outdata shape: {outdata.shape}")
 
         with self.buffer_lock:
             available_frames = self.buffer_write_index - self.buffer_read_index
             if available_frames < frames:
-                print(f"Output buffer underflow: available {available_frames}, needed {frames}")
                 outdata.fill(0)
                 return
 
             outdata[:] = self.output_buffer[self.buffer_read_index:self.buffer_read_index + frames]
             self.buffer_read_index += frames
-            print(f"Outputting {frames} frames, read index: {self.buffer_read_index}")
 
             if self.buffer_read_index >= self.buffer_write_index:
                 self.buffer_read_index = 0
                 self.buffer_write_index = 0
-                print("Resetting buffer indices")
 
     def apply_pitch_shift(self, audio_data):
         """Застосування зміни висоти тону"""
@@ -393,25 +416,43 @@ class AudioProcessor(QObject):
     def stop_processing(self):
         """Зупинка обробки аудіо"""
         self.is_processing = False
+        print("Запит на зупинку обробки...")
+
+        # Даємо трохи часу для завершення колбеків
+        time.sleep(0.1)
+
+        # Зупиняємо потоки
         if hasattr(self, 'input_stream'):
             try:
-                self.input_stream.stop()
-                self.input_stream.close()
-                print("Input stream stopped")
-            except:
-                pass
+                if self.input_stream.active:
+                    print("Зупиняємо input stream...")
+                    self.input_stream.stop()
+                if self.input_stream:
+                    self.input_stream.close()
+                print("Input stream зупинено та закрито")
+            except Exception as e:
+                print(f"Помилка при зупинці input stream: {e}")
+
         if hasattr(self, 'output_stream'):
             try:
-                self.output_stream.stop()
-                self.output_stream.close()
-                print("Output stream stopped")
-            except:
-                pass
+                if self.output_stream.active:
+                    print("Зупиняємо output stream...")
+                    self.output_stream.stop()
+                if self.output_stream:
+                    self.output_stream.close()
+                print("Output stream зупинено та закрито")
+            except Exception as e:
+                print(f"Помилка при зупинці output stream: {e}")
+
+        # Очищаємо буфери
         with self.buffer_lock:
-            self.output_buffer = np.zeros((self.block_size * 100, 2), dtype=np.float32)
+            if self.output_buffer is not None:
+                self.output_buffer.fill(0)
             self.buffer_write_index = 0
             self.buffer_read_index = 0
-            print("Buffer reset")
+            print("Буфери очищено")
+
+        print("Обробка повністю зупинена")
 
 class VoicePresets:
     """Менеджер пресетів голосу"""
@@ -523,12 +564,14 @@ class VoicePresets:
 
 class VoiceChangerMainWindow(QMainWindow):
     """Головне вікно додатку"""
+    processing_stopped = pyqtSignal()
 
     def __init__(self):
         super().__init__()
         self.audio_processor = AudioProcessor()
         self.virtual_mic = VirtualMicrophoneManager()
         self.is_running = False
+        self.setWindowIcon(QIcon("icon.png"))
         self.settings = QSettings()
 
         self.init_ui()
@@ -538,10 +581,20 @@ class VoiceChangerMainWindow(QMainWindow):
         self.audio_processor.level_updated.connect(self.update_level_indicator)
         self.load_settings()
 
+        # Підключення сигналу до слоту
+        self.processing_stopped.connect(self.on_processing_stopped)
+
+    def on_processing_stopped(self):
+        """Оновлення інтерфейсу після зупинки"""
+        self.start_stop_btn.setText("▶ Запустити Voice Changer")
+        self.status_bar.showMessage("Voice Changer зупинено")
+        self.input_device_combo.setEnabled(True)
+        self.setup_virtual_devices()
+        self.start_stop_btn.setStyleSheet("background-color: #3daee9;")  # Синій колір
+
     def init_ui(self):
         """Ініціалізація користувацького інтерфейсу"""
         self.setWindowTitle("ArchVoice")
-        self.setWindowIcon(QIcon("icon.png"))
         self.setGeometry(100, 100, 1000, 700)
 
         self.setStyleSheet("""
@@ -833,21 +886,44 @@ class VoiceChangerMainWindow(QMainWindow):
         layout.addWidget(advanced_group)
         return widget
 
+
     def setup_audio_devices(self):
         """Налаштування списку аудіо пристроїв"""
         try:
             devices = sd.query_devices()
+
+            print("\nПоточні пристрої звуку:")
+            for i, device in enumerate(devices):
+                input_ch = device['max_input_channels']
+                output_ch = device['max_output_channels']
+                flags = []
+                if input_ch > 0: flags.append("Мікрофон")
+                if output_ch > 0: flags.append("Вихід")
+                flags_str = " | ".join(flags)
+                print(f"{i}: {device['name']} [{flags_str}]")
+
             self.input_device_combo.clear()
             for i, device in enumerate(devices):
                 if device['max_input_channels'] > 0:
                     device_name = f"{device['name']}"
                     self.input_device_combo.addItem(device_name, i)
-            default_input = sd.default.device[0]
-            if default_input is not None:
-                for i in range(self.input_device_combo.count()):
-                    if self.input_device_combo.itemData(i) == default_input:
-                        self.input_device_combo.setCurrentIndex(i)
-                        break
+
+            virtual_input_found = False
+            for i, device in enumerate(devices):
+                if (device['max_input_channels'] > 0 and
+                    "voice_changer_source" in device['name'].lower()):
+                    self.input_device_combo.setCurrentIndex(i)
+                    virtual_input_found = True
+                    print(f"Знайдено віртуальний мікрофон: {device['name']}")
+                    break
+
+            if not virtual_input_found:
+                default_input = sd.default.device[0]
+                if default_input is not None:
+                    for i in range(self.input_device_combo.count()):
+                        if self.input_device_combo.itemData(i) == default_input:
+                            self.input_device_combo.setCurrentIndex(i)
+                            break
         except Exception as e:
             QMessageBox.warning(self, "Помилка", f"Не вдалося отримати список аудіо пристроїв:\n{e}")
 
@@ -878,10 +954,26 @@ class VoiceChangerMainWindow(QMainWindow):
 
     def create_virtual_microphone(self):
         """Створення віртуального мікрофону"""
+        if self.is_running:
+            QMessageBox.warning(self, "Помилка", "Спочатку зупиніть обробку звуку!")
+            return
+
+        # Виправлено ім'я методу: create_virtual_devices -> create_virtual_devices
         success, message = self.virtual_mic.create_virtual_devices()
         if success:
-            QMessageBox.information(self, "Успіх", message + "\n\nТепер ви можете використовувати 'Voice_Changer_Microphone' в інших програмах!")
+            devices = reload_audio_devices()
+
+            print("\nОновлений список пристроїв після створення віртуального мікрофона:")
+            for i, dev in enumerate(devices):
+                input_ch = dev['max_input_channels']
+                output_ch = dev['max_output_channels']
+                print(f"{i}: {dev['name']} (in: {input_ch}, out: {output_ch})")
+
+            self.setup_audio_devices()
             self.setup_virtual_devices()
+
+            QMessageBox.information(self, "Успіх",
+                message + "\n\nТепер ви можете використовувати 'Voice_Changer_Microphone' в інших програмах!")
         else:
             QMessageBox.critical(self, "Помилка", message)
 
@@ -915,43 +1007,73 @@ class VoiceChangerMainWindow(QMainWindow):
         self.preset_description.setText(f"<b>{item.text()}</b><br><br>{preset['description']}")
         self.status_bar.showMessage(f"Завантажено пресет: {item.text()}")
 
+
     def toggle_processing(self):
         """Перемикання обробки аудіо"""
         if not self.is_running:
+            # Код для запуску обробки
             try:
+                # Перевірка чи віртуальний мікрофон існує
                 result_sinks = subprocess.run(["pactl", "list", "short", "sinks"],
                                           capture_output=True, text=True)
-                if not any("voice_changer_sink" in line or "Voice_Changer_Output" in line
-                          for line in result_sinks.stdout.split('\n')):
+                sink_exists = any("voice_changer_sink" in line.lower() or
+                                 "voice_changer_output" in line.lower()
+                                 for line in result_sinks.stdout.split('\n'))
+
+                if not sink_exists:
                     QMessageBox.warning(self, "Помилка", "Спочатку створіть віртуальний мікрофон!")
                     return
-            except:
-                QMessageBox.warning(self, "Помилка", "Не вдалося перевірити стан віртуального мікрофону!")
-                return
 
-            input_device = self.input_device_combo.currentData()
-            if input_device is None:
-                QMessageBox.warning(self, "Помилка", "Оберіть вхідний мікрофон!")
-                return
+                # Отримуємо ID вибраного пристрою
+                input_device = self.input_device_combo.currentData()
+                if input_device is None:
+                    QMessageBox.warning(self, "Помилка", "Оберіть вхідний мікрофон!")
+                    return
 
-            success, message = self.audio_processor.start_processing(
-                input_device, self.virtual_mic.virtual_sink_name)
-            if success:
-                self.is_running = True
-                self.start_stop_btn.setText("⏸ Зупинити Voice Changer")
-                self.status_bar.showMessage("Voice Changer активний - говоріть у мікрофон!")
-                self.input_device_combo.setEnabled(False)
-                self.create_virtual_btn.setEnabled(False)
-                self.remove_virtual_btn.setEnabled(False)
-            else:
-                QMessageBox.critical(self, "Помилка", message)
+                # Виводимо список пристроїв перед запуском
+                print("\nПристрої перед запуском обробки:")
+                devices = sd.query_devices()
+                for i, dev in enumerate(devices):
+                    input_ch = dev['max_input_channels']
+                    output_ch = dev['max_output_channels']
+                    flags = []
+                    if input_ch > 0: flags.append("Мікрофон")
+                    if output_ch > 0: flags.append("Вихід")
+                    flags_str = " | ".join(flags)
+                    print(f"{i}: {dev['name']} [{flags_str}]")
+
+                # Запускаємо обробку
+                success, message = self.audio_processor.start_processing(
+                    input_device, self.virtual_mic.virtual_sink_name)
+
+                if success:
+                    self.is_running = True
+                    self.start_stop_btn.setText("⏸ Зупинити Voice Changer")
+                    self.status_bar.showMessage("Voice Changer активний - говоріть у мікрофон!")
+                    self.input_device_combo.setEnabled(False)
+                    self.create_virtual_btn.setEnabled(False)
+                    self.remove_virtual_btn.setEnabled(False)
+                    # Зміна кольору кнопки на червоний (активний стан)
+                    self.start_stop_btn.setStyleSheet("background-color: #e93d3d;")
+                else:
+                    QMessageBox.critical(self, "Помилка", message)
+            except Exception as e:
+                QMessageBox.critical(self, "Помилка", f"Не вдалося запустити обробку:\n{e}")
         else:
-            self.audio_processor.stop_processing()
-            self.is_running = False
-            self.start_stop_btn.setText("▶ Запустити Voice Changer")
-            self.status_bar.showMessage("Voice Changer зупинено")
-            self.input_device_combo.setEnabled(True)
-            self.setup_virtual_devices()
+            # Зупинка обробки в окремому потоці
+            def stop_processing_thread():
+                try:
+                    # Зупиняємо обробку
+                    self.audio_processor.stop_processing()
+                    self.is_running = False
+
+                    # Сигнал для оновлення GUI в головному потоці
+                    self.processing_stopped.emit()
+                except Exception as e:
+                    print(f"Помилка при зупинці: {e}")
+
+            # Запускаємо в окремому потоці
+            threading.Thread(target=stop_processing_thread, daemon=True).start()
 
     def update_level_indicator(self, level):
         """Оновлення індикатора рівня сигналу"""
