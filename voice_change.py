@@ -571,7 +571,7 @@ class VoiceChangerMainWindow(QMainWindow):
         self.audio_processor = AudioProcessor()
         self.virtual_mic = VirtualMicrophoneManager()
         self.is_running = False
-        self.setWindowIcon(QIcon("icon.png"))
+        self.setWindowIcon(QIcon("/usr/share/icons/hicolor/256x256/apps/archvoice.png"))
         self.settings = QSettings()
 
         self.init_ui()
