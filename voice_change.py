@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout
                              QMessageBox, QStatusBar, QProgressBar, QListWidget,
                              QListWidgetItem, QSplitter, QTextEdit, QTabWidget)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread, QObject, QSettings
-from PyQt6.QtGui import QFont, QIcon, QPalette, QColor
+from PyQt6.QtGui import QFont, QIcon, QPalette, QColor, QLinearGradient, QGradient
 
 def reload_audio_devices():
     """Перезавантаження звукової системи для оновлення списку пристроїв"""
@@ -106,7 +106,6 @@ class AudioProcessor(QObject):
         self.buffer_read_index = 0
         self.buffer_lock = threading.Lock()
 
-
     def setup_filters(self):
         """Налаштування аудіо фільтрів"""
         try:
@@ -160,7 +159,6 @@ class AudioProcessor(QObject):
             import traceback
             traceback.print_exc()
             return False, f"Помилка запуску: {e}"
-
 
     def find_virtual_sink_with_pactl(self):
         """Знаходить ID вихідного пристрою за допомогою pactl"""
@@ -590,102 +588,253 @@ class VoiceChangerMainWindow(QMainWindow):
         self.status_bar.showMessage("Voice Changer зупинено")
         self.input_device_combo.setEnabled(True)
         self.setup_virtual_devices()
-        self.start_stop_btn.setStyleSheet("background-color: #3daee9;")  # Синій колір
+        self.start_stop_btn.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #6d28d9, stop:1 #4c1d95);
+                border: 2px solid #7c3aed;
+                border-radius: 16px;
+                padding: 18px;
+                font-size: 18px;
+                font-weight: bold;
+                color: #ffffff;
+            }
+            QPushButton:hover {
+                background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #8b5cf6, stop:1 #7c3aed);
+                border: 2px solid #a78bfa;
+            }
+            QPushButton:pressed {
+                background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #5b21b6, stop:1 #4c1d95);
+                border: 2px solid #6d28d9;
+            }
+        """)
 
     def init_ui(self):
         """Ініціалізація користувацького інтерфейсу"""
         self.setWindowTitle("ArchVoice")
         self.setGeometry(100, 100, 1000, 700)
 
+        # Сучасний дизайн 2025: мінімалізм, неон градієнти, прозорість, межі для глибини
         self.setStyleSheet("""
             QMainWindow {
-                background-color: #232629;
-                color: #eff0f1;
+                background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #111827, stop:1 #1f2937);
+                color: #f9fafb;
             }
             QTabWidget::pane {
-                border: 1px solid #76797c;
-                background-color: #31363b;
+                border: 1px solid #374151;
+                background: rgba(31, 41, 55, 220);
+                border-radius: 16px;
+                margin: 6px;
             }
             QTabBar::tab {
-                background-color: #4d545a;
-                color: #eff0f1;
-                padding: 8px 16px;
-                margin: 2px;
-                border-radius: 4px;
+                background: rgba(17, 24, 39, 200);
+                color: #d1d5db;
+                padding: 14px 28px;
+                margin: 6px;
+                border-radius: 12px;
+                font-weight: 600;
+                border: 1px solid #374151;
             }
             QTabBar::tab:selected {
-                background-color: #3daee9;
+                background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #6d28d9, stop:1 #5b21b6);
+                color: #ffffff;
+                border: 2px solid #7c3aed;
+            }
+            QTabBar::tab:hover {
+                background: rgba(55, 65, 81, 220);
+                border: 1px solid #4b5563;
             }
             QGroupBox {
-                font-weight: bold;
-                border: 2px solid #76797c;
-                border-radius: 8px;
-                margin-top: 1ex;
-                padding-top: 10px;
-                background-color: #31363b;
+                font-weight: 600;
+                font-size: 15px;
+                border: 1px solid #374151;
+                border-radius: 16px;
+                margin-top: 1.5ex;
+                padding-top: 20px;
+                background: rgba(31, 41, 55, 180);
+                color: #e5e7eb;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
+                left: 20px;
+                padding: 0 10px;
+                color: #9ca3af;
             }
             QSlider::groove:horizontal {
-                border: 1px solid #76797c;
-                height: 8px;
-                background: #232629;
-                margin: 2px 0;
-                border-radius: 4px;
+                border: 1px solid #4b5563;
+                height: 14px;
+                background: #1f2937;
+                margin: 5px 0;
+                border-radius: 7px;
             }
             QSlider::handle:horizontal {
-                background: #3daee9;
-                border: 1px solid #76797c;
-                width: 18px;
-                margin: -5px 0;
-                border-radius: 9px;
+                background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #6d28d9, stop:1 #5b21b6);
+                border: 2px solid #4b5563;
+                width: 28px;
+                margin: -7px 0;
+                border-radius: 14px;
+            }
+            QSlider::handle:horizontal:hover {
+                background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #8b5cf6, stop:1 #7c3aed);
+                border: 2px solid #a78bfa;
             }
             QPushButton {
-                background-color: #3daee9;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 4px;
-                font-weight: bold;
+                background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #6d28d9, stop:1 #5b21b6);
+                border: 2px solid #7c3aed;
+                border-radius: 16px;
+                padding: 14px 28px;
+                font-weight: 600;
+                color: #ffffff;
             }
             QPushButton:hover {
-                background-color: #93cee9;
+                background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #8b5cf6, stop:1 #7c3aed);
+                border: 2px solid #a78bfa;
             }
             QPushButton:pressed {
-                background-color: #2980b9;
+                background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #5b21b6, stop:1 #4c1d95);
+                border: 2px solid #6d28d9;
             }
             QPushButton:disabled {
-                background-color: #4d545a;
-                color: #76797c;
+                background: #4b5563;
+                color: #9ca3af;
+                border: 1px solid #374151;
             }
             QListWidget {
-                background-color: #232629;
-                border: 1px solid #76797c;
-                border-radius: 4px;
+                background: rgba(31, 41, 55, 220);
+                border: 1px solid #374151;
+                border-radius: 16px;
+                color: #e5e7eb;
             }
             QListWidget::item {
-                padding: 8px;
-                border-radius: 4px;
-                margin: 1px;
+                padding: 14px;
+                border-radius: 12px;
+                margin: 6px;
+                background: rgba(17, 24, 39, 160);
+                border: 1px solid #374151;
             }
             QListWidget::item:selected {
-                background-color: #3daee9;
+                background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #6d28d9, stop:1 #5b21b6);
+                color: #ffffff;
+                border: 2px solid #7c3aed;
             }
             QListWidget::item:hover {
-                background-color: #4d545a;
+                background: rgba(55, 65, 81, 220);
+                border: 1px solid #4b5563;
+            }
+            QComboBox {
+                background: #1f2937;
+                border: 1px solid #374151;
+                border-radius: 12px;
+                padding: 10px;
+                color: #e5e7eb;
+                min-width: 140px;
+            }
+            QComboBox:hover {
+                border: 1px solid #4b5563;
+            }
+            QComboBox::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 28px;
+                border-left-width: 1px;
+                border-left-color: #374151;
+                border-left-style: solid;
+                border-top-right-radius: 12px;
+                border-bottom-right-radius: 12px;
+                background: #374151;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                border-left: 6px solid transparent;
+                border-right: 6px solid transparent;
+                border-top: 6px solid #e5e7eb;
+            }
+            QProgressBar {
+                border: 1px solid #374151;
+                border-radius: 10px;
+                text-align: center;
+                background: #1f2937;
+                color: #e5e7eb;
+            }
+            QProgressBar::chunk {
+                background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #22c55e, stop:1 #16a34a);
+                border-radius: 9px;
+            }
+            QCheckBox {
+                color: #e5e7eb;
+                spacing: 10px;
+            }
+            QCheckBox::indicator {
+                width: 24px;
+                height: 24px;
+                border: 2px solid #4b5563;
+                border-radius: 8px;
+                background: #1f2937;
+            }
+            QCheckBox::indicator:checked {
+                background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #6d28d9, stop:1 #5b21b6);
+                border: 2px solid #7c3aed;
+            }
+            QCheckBox::indicator:hover {
+                border: 2px solid #a78bfa;
+            }
+            QTextEdit {
+                background: rgba(31, 41, 55, 220);
+                border: 1px solid #374151;
+                border-radius: 16px;
+                color: #e5e7eb;
+                padding: 10px;
+            }
+            QLabel {
+                color: #e5e7eb;
+            }
+            QStatusBar {
+                background: rgba(17, 24, 39, 220);
+                color: #9ca3af;
             }
         """)
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
+        main_layout.setSpacing(20)
+        main_layout.setContentsMargins(24, 24, 24, 24)
+
+        # Header
+        header = QWidget()
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+
+        title = QLabel("ArchVoice - Змінювач Голосу")
+        title.setStyleSheet("""
+            font-size: 32px;
+            font-weight: 700;
+            color: #f9fafb;
+            padding: 10px;
+        """)
+
+        header_layout.addWidget(title)
+        header_layout.addStretch()
+
+        main_layout.addWidget(header)
 
         control_panel = self.create_control_panel()
         main_layout.addWidget(control_panel)
 
         self.tab_widget = QTabWidget()
+        self.tab_widget.setDocumentMode(True)
         main_layout.addWidget(self.tab_widget)
 
         presets_tab = self.create_presets_tab()
@@ -705,22 +854,64 @@ class VoiceChangerMainWindow(QMainWindow):
         """Створення панелі управління"""
         group = QGroupBox("Управління")
         layout = QHBoxLayout(group)
+        layout.setSpacing(24)
 
         self.start_stop_btn = QPushButton("▶ Запустити Voice Changer")
         self.start_stop_btn.clicked.connect(self.toggle_processing)
-        self.start_stop_btn.setMinimumHeight(40)
-        layout.addWidget(self.start_stop_btn)
+        self.start_stop_btn.setMinimumHeight(60)
+        self.start_stop_btn.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #6d28d9, stop:1 #5b21b6);
+                border: 2px solid #7c3aed;
+                border-radius: 16px;
+                padding: 18px;
+                font-size: 18px;
+                font-weight: 700;
+                color: #ffffff;
+            }
+            QPushButton:hover {
+                background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #8b5cf6, stop:1 #7c3aed);
+                border: 2px solid #a78bfa;
+            }
+            QPushButton:pressed {
+                background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #5b21b6, stop:1 #4c1d95);
+                border: 2px solid #6d28d9;
+            }
+        """)
+        layout.addWidget(self.start_stop_btn)  # Перемістив ліворуч
+
+        level_widget = QWidget()
+        level_layout = QVBoxLayout(level_widget)
+        level_layout.setSpacing(6)
 
         level_label = QLabel("Рівень мікрофону:")
+        level_label.setStyleSheet("font-weight: 600; color: #9ca3af;")
+        level_layout.addWidget(level_label)
+
         self.level_bar = QProgressBar()
         self.level_bar.setMaximum(100)
         self.level_bar.setTextVisible(False)
-        self.level_bar.setFixedHeight(20)
-        layout.addWidget(level_label)
-        layout.addWidget(self.level_bar)
+        self.level_bar.setFixedHeight(24)
+        level_layout.addWidget(self.level_bar)
+
+        layout.addWidget(level_widget)
+
+        status_widget = QWidget()
+        status_layout = QVBoxLayout(status_widget)
+        status_layout.setSpacing(6)
+
+        status_label = QLabel("Статус:")
+        status_label.setStyleSheet("font-weight: 600; color: #9ca3af;")
+        status_layout.addWidget(status_label)
 
         self.virtual_mic_status = QLabel("❌ Віртуальний мікрофон: не активний")
-        layout.addWidget(self.virtual_mic_status)
+        self.virtual_mic_status.setStyleSheet("color: #ef4444;")
+        status_layout.addWidget(self.virtual_mic_status)
+
+        layout.addWidget(status_widget)
 
         return group
 
@@ -728,6 +919,8 @@ class VoiceChangerMainWindow(QMainWindow):
         """Створення вкладки пресетів"""
         widget = QWidget()
         layout = QHBoxLayout(widget)
+        layout.setSpacing(24)
+        layout.setContentsMargins(12, 12, 12, 12)
 
         presets_group = QGroupBox("Готові пресети")
         presets_layout = QVBoxLayout(presets_group)
@@ -745,7 +938,7 @@ class VoiceChangerMainWindow(QMainWindow):
 
         self.preset_description = QTextEdit()
         self.preset_description.setReadOnly(True)
-        self.preset_description.setMaximumHeight(100)
+        self.preset_description.setMaximumHeight(140)
         desc_layout.addWidget(self.preset_description)
 
         layout.addWidget(desc_group, 1)
@@ -756,9 +949,12 @@ class VoiceChangerMainWindow(QMainWindow):
         """Створення вкладки ефектів"""
         widget = QWidget()
         layout = QGridLayout(widget)
+        layout.setSpacing(24)
+        layout.setContentsMargins(12, 12, 12, 12)
 
         main_group = QGroupBox("Основні параметри")
         main_layout = QGridLayout(main_group)
+        main_layout.setSpacing(14)
 
         main_layout.addWidget(QLabel("Висота тону:"), 0, 0)
         self.pitch_slider = QSlider(Qt.Orientation.Horizontal)
@@ -766,6 +962,7 @@ class VoiceChangerMainWindow(QMainWindow):
         self.pitch_slider.setValue(100)
         self.pitch_slider.valueChanged.connect(self.update_pitch)
         self.pitch_label = QLabel("1.00")
+        self.pitch_label.setMinimumWidth(50)
         main_layout.addWidget(self.pitch_slider, 0, 1)
         main_layout.addWidget(self.pitch_label, 0, 2)
 
@@ -775,6 +972,7 @@ class VoiceChangerMainWindow(QMainWindow):
         self.volume_slider.setValue(100)
         self.volume_slider.valueChanged.connect(self.update_volume)
         self.volume_label = QLabel("100%")
+        self.volume_label.setMinimumWidth(50)
         main_layout.addWidget(self.volume_slider, 1, 1)
         main_layout.addWidget(self.volume_label, 1, 2)
 
@@ -782,6 +980,7 @@ class VoiceChangerMainWindow(QMainWindow):
 
         effects_group = QGroupBox("Ефекти")
         effects_layout = QGridLayout(effects_group)
+        effects_layout.setSpacing(14)
 
         effects_layout.addWidget(QLabel("Дисторшн:"), 0, 0)
         self.distortion_slider = QSlider(Qt.Orientation.Horizontal)
@@ -789,6 +988,7 @@ class VoiceChangerMainWindow(QMainWindow):
         self.distortion_slider.setValue(0)
         self.distortion_slider.valueChanged.connect(self.update_distortion)
         self.distortion_label = QLabel("0%")
+        self.distortion_label.setMinimumWidth(50)
         effects_layout.addWidget(self.distortion_slider, 0, 1)
         effects_layout.addWidget(self.distortion_label, 0, 2)
 
@@ -798,6 +998,7 @@ class VoiceChangerMainWindow(QMainWindow):
         self.echo_delay_slider.setValue(0)
         self.echo_delay_slider.valueChanged.connect(self.update_echo_delay)
         self.echo_delay_label = QLabel("0 мс")
+        self.echo_delay_label.setMinimumWidth(50)
         effects_layout.addWidget(self.echo_delay_slider, 1, 1)
         effects_layout.addWidget(self.echo_delay_label, 1, 2)
 
@@ -807,6 +1008,7 @@ class VoiceChangerMainWindow(QMainWindow):
         self.echo_feedback_slider.setValue(0)
         self.echo_feedback_slider.valueChanged.connect(self.update_echo_feedback)
         self.echo_feedback_label = QLabel("0%")
+        self.echo_feedback_label.setMinimumWidth(50)
         effects_layout.addWidget(self.echo_feedback_slider, 2, 1)
         effects_layout.addWidget(self.echo_feedback_label, 2, 2)
 
@@ -816,12 +1018,19 @@ class VoiceChangerMainWindow(QMainWindow):
         self.reverb_slider.setValue(0)
         self.reverb_slider.valueChanged.connect(self.update_reverb)
         self.reverb_label = QLabel("0%")
+        self.reverb_label.setMinimumWidth(50)
         effects_layout.addWidget(self.reverb_slider, 3, 1)
         self.reverb_label = QLabel("0%")
         effects_layout.addWidget(self.reverb_label, 3, 2)
 
         self.chorus_checkbox = QCheckBox("Хорус")
         self.chorus_checkbox.toggled.connect(self.update_chorus)
+        self.chorus_checkbox.setStyleSheet("""
+            QCheckBox {
+                color: #e5e7eb;
+                font-weight: 600;
+            }
+        """)
         effects_layout.addWidget(self.chorus_checkbox, 4, 0, 1, 3)
 
         layout.addWidget(effects_group, 1, 0, 1, 2)
@@ -832,22 +1041,27 @@ class VoiceChangerMainWindow(QMainWindow):
         """Створення вкладки пристроїв"""
         widget = QWidget()
         layout = QVBoxLayout(widget)
+        layout.setSpacing(24)
+        layout.setContentsMargins(12, 12, 12, 12)
 
         devices_group = QGroupBox("Аудіо пристрої")
         devices_layout = QGridLayout(devices_group)
+        devices_layout.setSpacing(14)
 
         devices_layout.addWidget(QLabel("Справжній мікрофон:"), 0, 0)
         self.input_device_combo = QComboBox()
-        devices_layout.addWidget(self.input_device_combo, 0, 1)
+        devices_layout.addWidget(self.input_device_combo, 0, 1, 1, 2)
 
         refresh_btn = QPushButton("🔄 Оновити пристрої")
         refresh_btn.clicked.connect(self.setup_audio_devices)
-        devices_layout.addWidget(refresh_btn, 1, 0, 1, 2)
+        refresh_btn.setStyleSheet("padding: 10px;")
+        devices_layout.addWidget(refresh_btn, 1, 0, 1, 3)
 
         layout.addWidget(devices_group)
 
         virtual_group = QGroupBox("Віртуальний мікрофон")
         virtual_layout = QVBoxLayout(virtual_group)
+        virtual_layout.setSpacing(14)
 
         info_label = QLabel("""
         <b>Як використовувати:</b><br>
@@ -857,15 +1071,20 @@ class VoiceChangerMainWindow(QMainWindow):
         4. Говоріть у свій справжній мікрофон - інші почують оброблений голос!
         """)
         info_label.setWordWrap(True)
+        info_label.setStyleSheet("color: #9ca3af; padding: 10px;")
         virtual_layout.addWidget(info_label)
 
         virtual_controls = QHBoxLayout()
+        virtual_controls.setSpacing(14)
+
         self.create_virtual_btn = QPushButton("➕ Створити віртуальний мікрофон")
         self.create_virtual_btn.clicked.connect(self.create_virtual_microphone)
+        self.create_virtual_btn.setStyleSheet("padding: 10px;")
         virtual_controls.addWidget(self.create_virtual_btn)
 
         self.remove_virtual_btn = QPushButton("➖ Видалити віртуальний мікрофон")
         self.remove_virtual_btn.clicked.connect(self.remove_virtual_microphone)
+        self.remove_virtual_btn.setStyleSheet("padding: 10px;")
         virtual_controls.addWidget(self.remove_virtual_btn)
 
         virtual_layout.addLayout(virtual_controls)
@@ -873,6 +1092,7 @@ class VoiceChangerMainWindow(QMainWindow):
 
         advanced_group = QGroupBox("Додаткові налаштування")
         advanced_layout = QGridLayout(advanced_group)
+        advanced_layout.setSpacing(14)
 
         advanced_layout.addWidget(QLabel("Шумоподавлення:"), 0, 0)
         self.noise_gate_slider = QSlider(Qt.Orientation.Horizontal)
@@ -880,51 +1100,86 @@ class VoiceChangerMainWindow(QMainWindow):
         self.noise_gate_slider.setValue(1)
         self.noise_gate_slider.valueChanged.connect(self.update_noise_gate)
         self.noise_gate_label = QLabel("1%")
+        self.noise_gate_label.setMinimumWidth(50)
         advanced_layout.addWidget(self.noise_gate_slider, 0, 1)
         advanced_layout.addWidget(self.noise_gate_label, 0, 2)
 
         layout.addWidget(advanced_group)
         return widget
 
-
     def setup_audio_devices(self):
-        """Налаштування списку аудіо пристроїв"""
+        """Налаштування списку аудіо пристроїв, відображаючи моно і стерео мікрофони, але з блеклістом"""
         try:
             devices = sd.query_devices()
+            blacklist = ['speex', 'stereo', 'monitor', 'virtual', 'jack', 'sof', 'displayport']  # Додано 'stereo' до блекліста
 
-            print("\nПоточні пристрої звуку:")
+            print("\nПовний список аудіо пристроїв:")
             for i, device in enumerate(devices):
                 input_ch = device['max_input_channels']
                 output_ch = device['max_output_channels']
                 flags = []
-                if input_ch > 0: flags.append("Мікрофон")
-                if output_ch > 0: flags.append("Вихід")
+                if input_ch > 0:
+                    flags.append(f"Мікрофон ({input_ch} канали)")
+                if output_ch > 0:
+                    flags.append("Вихід")
                 flags_str = " | ".join(flags)
                 print(f"{i}: {device['name']} [{flags_str}]")
 
             self.input_device_combo.clear()
+            mono_stereo_devices = []
             for i, device in enumerate(devices):
-                if device['max_input_channels'] > 0:
-                    device_name = f"{device['name']}"
-                    self.input_device_combo.addItem(device_name, i)
+                device_name = device['name'].lower()
+                # Дозволяємо пристрої з 1 або 2 каналами, але виключаємо ті, що містять слова з блекліста
+                # Виняток: дозволяємо voice_changer_source, навіть якщо він у блеклісті
+                if (device['max_input_channels'] in [1, 2] and
+                    (not any(keyword in device_name for keyword in blacklist) or
+                    'voice_changer_source' in device_name)):
+                    self.input_device_combo.addItem(device['name'], i)
+                    mono_stereo_devices.append((i, device['name'], device['max_input_channels']))
+                    print(f"Додано мікрофон: {device['name']} (ID: {i}, Канали: {device['max_input_channels']})")
+                else:
+                    reason = ("блекліст" if any(keyword in device_name for keyword in blacklist)
+                            else "не 1 або 2 канали")
+                    print(f"Пропущено пристрій: {device['name']} (ID: {i}, Канали: {device['max_input_channels']}, Причина: {reason})")
 
+            if not mono_stereo_devices:
+                print("Попередження: Не знайдено придатних мікрофонів!")
+                QMessageBox.warning(self, "Попередження", "Не знайдено моно або стерео мікрофонів (за винятком блекліста). Перевірте підключені пристрої.")
+
+            # Перевірка наявності віртуального мікрофона
             virtual_input_found = False
             for i, device in enumerate(devices):
-                if (device['max_input_channels'] > 0 and
-                    "voice_changer_source" in device['name'].lower()):
-                    self.input_device_combo.setCurrentIndex(i)
-                    virtual_input_found = True
-                    print(f"Знайдено віртуальний мікрофон: {device['name']}")
+                if (device['max_input_channels'] in [1, 2] and
+                    'voice_changer_source' in device['name'].lower()):
+                    for combo_index in range(self.input_device_combo.count()):
+                        if self.input_device_combo.itemData(combo_index) == i:
+                            self.input_device_combo.setCurrentIndex(combo_index)
+                            virtual_input_found = True
+                            print(f"Встановлено віртуальний мікрофон за замовчуванням: {device['name']} (ID: {i})")
+                            break
                     break
 
+            # Якщо віртуальний мікрофон не знайдено, встановлюємо дефолтний пристрій
             if not virtual_input_found:
                 default_input = sd.default.device[0]
                 if default_input is not None:
                     for i in range(self.input_device_combo.count()):
                         if self.input_device_combo.itemData(i) == default_input:
-                            self.input_device_combo.setCurrentIndex(i)
-                            break
+                            device = sd.query_devices(default_input)
+                            if (device['max_input_channels'] in [1, 2] and
+                                not any(keyword in device['name'].lower() for keyword in blacklist)):
+                                self.input_device_combo.setCurrentIndex(i)
+                                print(f"Встановлено дефолтний мікрофон: {device['name']} (ID: {default_input}, Канали: {device['max_input_channels']})")
+                                break
+                    else:
+                        print("Попередження: Дефолтний пристрій не відповідає критеріям (не 1 або 2 канали, або в блеклісті)")
+
+            if self.input_device_combo.count() == 0:
+                print("Критична помилка: Список придатних мікрофонів порожній!")
+                QMessageBox.warning(self, "Помилка", "Не знайдено жодного придатного мікрофона. Перевірте підключення або налаштування звукової системи.")
+
         except Exception as e:
+            print(f"Помилка отримання списку аудіо пристроїв: {e}")
             QMessageBox.warning(self, "Помилка", f"Не вдалося отримати список аудіо пристроїв:\n{e}")
 
     def setup_virtual_devices(self):
@@ -942,15 +1197,18 @@ class VoiceChangerMainWindow(QMainWindow):
 
             if sink_exists and source_exists:
                 self.virtual_mic_status.setText("✅ Віртуальний мікрофон: активний")
+                self.virtual_mic_status.setStyleSheet("color: #22c55e;")
                 self.create_virtual_btn.setEnabled(False)
                 self.remove_virtual_btn.setEnabled(True)
             else:
                 self.virtual_mic_status.setText("❌ Віртуальний мікрофон: не активний")
+                self.virtual_mic_status.setStyleSheet("color: #ef4444;")
                 self.create_virtual_btn.setEnabled(True)
                 self.remove_virtual_btn.setEnabled(False)
         except Exception as e:
             print(f"Помилка перевірки віртуальних пристроїв: {e}")
             self.virtual_mic_status.setText("⚠️ Стан віртуального мікрофона: невідомий")
+            self.virtual_mic_status.setStyleSheet("color: #f59e0b;")
 
     def create_virtual_microphone(self):
         """Створення віртуального мікрофону"""
@@ -958,7 +1216,6 @@ class VoiceChangerMainWindow(QMainWindow):
             QMessageBox.warning(self, "Помилка", "Спочатку зупиніть обробку звуку!")
             return
 
-        # Виправлено ім'я методу: create_virtual_devices -> create_virtual_devices
         success, message = self.virtual_mic.create_virtual_devices()
         if success:
             devices = reload_audio_devices()
@@ -1007,7 +1264,6 @@ class VoiceChangerMainWindow(QMainWindow):
         self.preset_description.setText(f"<b>{item.text()}</b><br><br>{preset['description']}")
         self.status_bar.showMessage(f"Завантажено пресет: {item.text()}")
 
-
     def toggle_processing(self):
         """Перемикання обробки аудіо"""
         if not self.is_running:
@@ -1054,7 +1310,28 @@ class VoiceChangerMainWindow(QMainWindow):
                     self.create_virtual_btn.setEnabled(False)
                     self.remove_virtual_btn.setEnabled(False)
                     # Зміна кольору кнопки на червоний (активний стан)
-                    self.start_stop_btn.setStyleSheet("background-color: #e93d3d;")
+                    self.start_stop_btn.setStyleSheet("""
+                        QPushButton {
+                            background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1,
+                                stop:0 #ef4444, stop:1 #dc2626);
+                            border: 2px solid #f87171;
+                            border-radius: 16px;
+                            padding: 18px;
+                            font-size: 18px;
+                            font-weight: 700;
+                            color: #ffffff;
+                        }
+                        QPushButton:hover {
+                            background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1,
+                                stop:0 #f87171, stop:1 #ef4444);
+                            border: 2px solid #fca5a5;
+                        }
+                        QPushButton:pressed {
+                            background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1,
+                                stop:0 #dc2626, stop:1 #b91c1c);
+                            border: 2px solid #ef4444;
+                        }
+                    """)
                 else:
                     QMessageBox.critical(self, "Помилка", message)
             except Exception as e:
@@ -1169,7 +1446,6 @@ class VoiceChangerMainWindow(QMainWindow):
             self.virtual_mic.remove_virtual_devices()
         event.accept()
 
-
 def main():
     """Головна функція додатку"""
     app = QApplication(sys.argv)
@@ -1207,7 +1483,6 @@ def main():
     window = VoiceChangerMainWindow()
     window.show()
     sys.exit(app.exec())
-
 
 if __name__ == "__main__":
     main()
