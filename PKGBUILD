@@ -1,9 +1,9 @@
 pkgname=archvoice
-pkgver=1.0.1
+pkgver=2.0.0
 pkgrel=1
 pkgdesc="Voice Changer на Python з GUI на PyQt6"
 arch=('any')
-url="https://example.com"
+url="https://github.com/HardWorkingMan-ua/ArchVoice"
 license=('MIT')
 depends=('python' 'python-numpy' 'python-sounddevice' 'python-scipy' 'python-pyqt6')
 source=("voice_change.py" "archvoice.desktop" "icon.png")
